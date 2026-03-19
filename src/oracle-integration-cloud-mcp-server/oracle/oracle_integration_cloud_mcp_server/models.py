@@ -60,6 +60,21 @@ def _normalize_value(payload: dict[str, Any], *keys: str) -> str | None:
     return None
 
 
+def _normalize_adapter_type(payload: dict[str, Any]) -> str | None:
+    value = payload.get("adapterType")
+    if isinstance(value, str) and value:
+        return value
+    if isinstance(value, dict):
+        for key in ("displayName", "type", "name", "id"):
+            nested = value.get(key)
+            if isinstance(nested, str) and nested:
+                return nested
+    fallback = payload.get("adapter-type")
+    if isinstance(fallback, str) and fallback:
+        return fallback
+    return None
+
+
 def map_integration_summary(payload: dict[str, Any]) -> IntegrationSummary:
     return IntegrationSummary(
         id=_normalize_value(payload, "id"),
@@ -87,7 +102,7 @@ def map_connection_summary(payload: dict[str, Any]) -> ConnectionSummary:
         name=_normalize_value(payload, "name"),
         identifier=_normalize_value(payload, "identifier"),
         role=_normalize_value(payload, "role"),
-        adapter_type=_normalize_value(payload, "adapterType", "adapter-type"),
+        adapter_type=_normalize_adapter_type(payload),
         last_updated=_normalize_value(payload, "lastUpdated", "last-updated"),
     )
 
