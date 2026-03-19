@@ -57,6 +57,9 @@ ORACLE_MCP_HOST=127.0.0.1 ORACLE_MCP_PORT=8888 uvx oracle.oracle-integration-clo
 | `get_integration` | Retrieve a single integration by composite ID |
 | `list_connections` | List connections with optional filters and pagination |
 | `get_connection` | Retrieve a single connection by ID |
+| `list_integration_runs` | List integration monitoring instances with optional filters and time window |
+| `get_integration_run` | Retrieve a single integration monitoring instance |
+| `list_failed_integration_runs` | List errored integration runs from the monitoring errors endpoint |
 
 ## Notes
 

@@ -182,3 +182,61 @@ class OICClient:
             f"/ic/api/integration/v1/connections/{encoded_id}",
             params={"expand": expand},
         )
+
+    def list_integration_runs(
+        self,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+        q: str | None = None,
+        fields: str | None = None,
+        group_by: str | None = None,
+        return_mode: str | None = None,
+        time_window: str | None = None,
+    ) -> dict[str, Any]:
+        return self._request(
+            "GET",
+            "/ic/api/integration/v1/monitoring/instances",
+            params={
+                "limit": limit,
+                "offset": offset,
+                "q": q,
+                "fields": fields,
+                "groupBy": group_by,
+                "return": return_mode,
+                "timeWindow": time_window,
+            },
+        )
+
+    def get_integration_run(self, run_id: str, *, return_mode: str | None = None) -> dict[str, Any]:
+        encoded_id = quote(run_id, safe="")
+        return self._request(
+            "GET",
+            f"/ic/api/integration/v1/monitoring/instances/{encoded_id}",
+            params={"return": return_mode},
+        )
+
+    def list_failed_integration_runs(
+        self,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+        q: str | None = None,
+        expand: str | None = None,
+        group_by: str | None = None,
+        return_mode: str | None = None,
+        time_window: str | None = None,
+    ) -> dict[str, Any]:
+        return self._request(
+            "GET",
+            "/ic/api/integration/v1/monitoring/errors",
+            params={
+                "limit": limit,
+                "offset": offset,
+                "q": q,
+                "expand": expand,
+                "groupBy": group_by,
+                "return": return_mode,
+                "timeWindow": time_window,
+            },
+        )

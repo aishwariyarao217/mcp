@@ -47,15 +47,88 @@ class ConnectionDetail(ConnectionSummary):
 class ListResponse(BaseModel):
     count: int = Field(..., description="Number of returned items.")
     total_results: int | None = Field(None, description="Server-reported total result count.")
+    total_records_count: int | None = Field(
+        None,
+        description="Server-reported record count when provided by OIC monitoring APIs.",
+    )
     has_more: bool | None = Field(None, description="Whether more results may be available.")
     offset: int | None = Field(None, description="Current page offset.")
     limit: int | None = Field(None, description="Current page limit.")
+    time_window: str | None = Field(
+        None,
+        description="Applied OIC monitoring time window when present.",
+    )
+    data_fetch_time: str | None = Field(
+        None,
+        description="Timestamp when OIC generated the monitoring response.",
+    )
     items: list[dict[str, Any]] = Field(default_factory=list, description="Returned items.")
+
+
+class IntegrationRunSummary(BaseModel):
+    id: str | None = Field(None, description="Integration instance identifier.")
+    run_id: str | None = Field(None, description="Run identifier for scheduled integrations.")
+    status: str | None = Field(None, description="Integration instance status.")
+    integration_id: str | None = Field(None, description="Integration identifier.")
+    integration_name: str | None = Field(None, description="Integration name.")
+    integration_version: str | None = Field(None, description="Integration version.")
+    creation_date: str | None = Field(None, description="Instance creation time.")
+    last_tracked_time: str | None = Field(None, description="Last tracked time.")
+    request_id: str | None = Field(None, description="Request identifier when present.")
+    parent_instance_id: str | None = Field(None, description="Parent integration instance identifier.")
+    primary_name: str | None = Field(None, description="Primary tracking name.")
+    primary_value: str | None = Field(None, description="Primary tracking value.")
+
+
+class IntegrationRunDetail(IntegrationRunSummary):
+    payload: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Original response payload for fields not yet normalized.",
+    )
+
+
+class FailedIntegrationRunSummary(BaseModel):
+    id: str | None = Field(None, description="Errored record identifier.")
+    instance_id: str | None = Field(None, description="Integration instance identifier.")
+    run_id: str | None = Field(None, description="Run identifier for scheduled integrations.")
+    status: str | None = Field(None, description="Integration instance status.")
+    integration_code: str | None = Field(None, description="Integration code, when present.")
+    integration_name: str | None = Field(None, description="Integration name, when present.")
+    integration_version: str | None = Field(None, description="Integration version, when present.")
+    fault_id: str | None = Field(None, description="Fault identifier.")
+    error_code: str | None = Field(None, description="Error code.")
+    error_message: str | None = Field(None, description="Short error message.")
+    error_details: str | None = Field(None, description="Detailed error message.")
+    recoverable: bool | None = Field(None, description="Whether the errored run is recoverable.")
+    retry_count: int | None = Field(None, description="Retry count.")
+    creation_date: str | None = Field(None, description="Instance creation time.")
+    last_tracked_time: str | None = Field(None, description="Last tracked time.")
+
+
+class FailedIntegrationRunDetail(FailedIntegrationRunSummary):
+    payload: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Original response payload for fields not yet normalized.",
+    )
 
 
 def _normalize_value(payload: dict[str, Any], *keys: str) -> str | None:
     for key in keys:
         if key in payload and payload[key] not in (None, ""):
+            return payload[key]
+    return None
+
+
+def _normalize_bool(payload: dict[str, Any], *keys: str) -> bool | None:
+    for key in keys:
+        if key in payload and isinstance(payload[key], bool):
+            return payload[key]
+    return None
+
+
+def _normalize_int(payload: dict[str, Any], *keys: str) -> int | None:
+    for key in keys:
+        if key in payload and isinstance(payload[key], int):
             return payload[key]
     return None
 
@@ -120,8 +193,68 @@ def map_list_response(items: list[dict[str, Any]], payload: dict[str, Any]) -> L
     return ListResponse(
         count=len(items),
         total_results=payload.get("totalResults") or payload.get("total-results"),
-        has_more=payload.get("hasMore") or payload.get("has-more"),
+        total_records_count=payload.get("totalRecordsCount") or payload.get("total-records-count"),
+        has_more=payload.get("hasMore") if "hasMore" in payload else payload.get("has-more"),
         offset=payload.get("offset"),
         limit=payload.get("limit"),
+        time_window=payload.get("timeWindow") or payload.get("time-window"),
+        data_fetch_time=payload.get("dataFetchTime") or payload.get("data-fetch-time"),
         items=items,
+    )
+
+
+def map_integration_run_summary(payload: dict[str, Any]) -> IntegrationRunSummary:
+    return IntegrationRunSummary(
+        id=_normalize_value(payload, "id", "instance-id"),
+        run_id=_normalize_value(payload, "runId", "run-id"),
+        status=_normalize_value(payload, "status"),
+        integration_id=_normalize_value(payload, "integrationId", "integration-id"),
+        integration_name=_normalize_value(payload, "integrationName", "integration-name"),
+        integration_version=_normalize_value(payload, "integrationVersion", "integration-version"),
+        creation_date=_normalize_value(payload, "creationDate", "creation-date"),
+        last_tracked_time=_normalize_value(payload, "lastTrackedTime", "last-tracked-time"),
+        request_id=_normalize_value(payload, "requestId", "request-id"),
+        parent_instance_id=_normalize_value(payload, "parentInstanceId", "parent-instance-id"),
+        primary_name=_normalize_value(payload, "primaryName", "pk-name"),
+        primary_value=_normalize_value(payload, "primaryValue", "pk-value"),
+    )
+
+
+def map_integration_run_detail(payload: dict[str, Any]) -> IntegrationRunDetail:
+    summary = map_integration_run_summary(payload)
+    return IntegrationRunDetail(
+        **summary.model_dump(),
+        payload=payload,
+    )
+
+
+def map_failed_integration_run_summary(payload: dict[str, Any]) -> FailedIntegrationRunSummary:
+    integration = payload.get("integration") if isinstance(payload.get("integration"), dict) else {}
+    return FailedIntegrationRunSummary(
+        id=_normalize_value(payload, "id"),
+        instance_id=_normalize_value(payload, "instanceId", "instance-id"),
+        run_id=_normalize_value(payload, "runId", "run-id"),
+        status=_normalize_value(payload, "status"),
+        integration_code=_normalize_value(payload, "code", "integrationId", "integration-id")
+        or _normalize_value(integration, "code", "id"),
+        integration_name=_normalize_value(payload, "integrationName", "integration-name")
+        or _normalize_value(integration, "name", "displayName"),
+        integration_version=_normalize_value(payload, "integrationVersion", "integration-version")
+        or _normalize_value(integration, "version"),
+        fault_id=_normalize_value(payload, "faultId", "fault-id"),
+        error_code=_normalize_value(payload, "errorCode", "error-code"),
+        error_message=_normalize_value(payload, "errorMessage", "error-message"),
+        error_details=_normalize_value(payload, "errorDetails", "error-details"),
+        recoverable=_normalize_bool(payload, "recoverable"),
+        retry_count=_normalize_int(payload, "retryCount", "retry-count"),
+        creation_date=_normalize_value(payload, "creationDate", "creation-date"),
+        last_tracked_time=_normalize_value(payload, "lastTrackedTime", "last-tracked-time"),
+    )
+
+
+def map_failed_integration_run_detail(payload: dict[str, Any]) -> FailedIntegrationRunDetail:
+    summary = map_failed_integration_run_summary(payload)
+    return FailedIntegrationRunDetail(
+        **summary.model_dump(),
+        payload=payload,
     )
